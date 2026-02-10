@@ -4,8 +4,6 @@ import {
   TrendingUp,
   Activity,
   CircleDollarSign,
-  ArrowUpRight,
-  ArrowDownRight,
   Clock
 } from 'lucide-react'
 import { StatCard } from '../components/common/StatCard'
@@ -37,36 +35,16 @@ export function DashboardPage() {
   const recentTxs = transactions.slice(0, 10)
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">Overview of your trading activity</p>
-      </div>
-
-      <div className="grid grid-cols-4 gap-4">
-        <StatCard
-          label="Total SOL"
-          value={totalSol.toFixed(4)}
-          icon={CircleDollarSign}
-          color="text-yellow-500"
-        />
-        <StatCard
-          label="Active Wallets"
-          value={wallets.length}
-          icon={Wallet}
-          color="text-blue-500"
-        />
-        <StatCard
-          label="Trades Today"
-          value={todayTrades}
-          icon={TrendingUp}
-          color="text-green-500"
-        />
+    <div className="space-y-3">
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-2">
+        <StatCard label="Total SOL" value={totalSol.toFixed(4)} icon={CircleDollarSign} />
+        <StatCard label="Active Wallets" value={wallets.length} icon={Wallet} />
+        <StatCard label="Trades Today" value={todayTrades} icon={TrendingUp} />
         <StatCard
           label="Bot Status"
           value={botState.status === 'running' ? 'Running' : 'Idle'}
           icon={Activity}
-          color={botState.status === 'running' ? 'text-success' : 'text-gray-500'}
           subtitle={
             botState.status === 'running'
               ? `Round ${botState.currentRound}/${botState.totalRounds || '∞'}`
@@ -75,89 +53,104 @@ export function DashboardPage() {
         />
       </div>
 
-      {/* Balance Overview */}
-      <div className="card">
-        <h2 className="text-base font-semibold text-white mb-4">Wallet Balances</h2>
-        {wallets.length === 0 ? (
-          <p className="text-sm text-gray-500">No wallets configured</p>
-        ) : (
-          <div className="space-y-2">
-            {wallets.map((wallet) => (
-              <div
-                key={wallet.id}
-                className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-tertiary"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-2 h-2 rounded-full ${wallet.isMain ? 'bg-accent' : 'bg-gray-600'}`}
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-white">{wallet.label}</span>
-                    <span className="text-xs text-gray-500 ml-2">
-                      {wallet.publicKey.slice(0, 4)}...{wallet.publicKey.slice(-4)}
-                    </span>
-                  </div>
-                </div>
-                <span className="text-sm font-mono text-gray-300">
-                  {wallet.balanceSol.toFixed(4)} SOL
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Wallet Balances */}
+      <div className="win-groupbox">
+        <span className="win-groupbox-label">Wallet Balances</span>
+        <div className="mt-2">
+          {wallets.length === 0 ? (
+            <p className="text-[11px] text-win-dark p-2">No wallets configured.</p>
+          ) : (
+            <div className="shadow-win-field bg-white">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="bg-win-bg">
+                    <th className="text-left px-1 py-0.5 font-normal border-b border-win-dark">Type</th>
+                    <th className="text-left px-1 py-0.5 font-normal border-b border-win-dark">Label</th>
+                    <th className="text-left px-1 py-0.5 font-normal border-b border-win-dark">Address</th>
+                    <th className="text-right px-1 py-0.5 font-normal border-b border-win-dark">Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {wallets.map((wallet, i) => (
+                    <tr
+                      key={wallet.id}
+                      className={i % 2 === 0 ? 'bg-white' : 'bg-win-mid'}
+                    >
+                      <td className="px-1 py-0.5">{wallet.isMain ? '★' : '○'}</td>
+                      <td className="px-1 py-0.5">{wallet.label}</td>
+                      <td className="px-1 py-0.5 font-sys text-[10px]">
+                        {wallet.publicKey.slice(0, 6)}...{wallet.publicKey.slice(-6)}
+                      </td>
+                      <td className="px-1 py-0.5 text-right font-sys text-[10px]">
+                        {wallet.balanceSol.toFixed(4)} SOL
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Recent Activity */}
-      <div className="card">
-        <h2 className="text-base font-semibold text-white mb-4">Recent Activity</h2>
-        {recentTxs.length === 0 ? (
-          <EmptyState
-            icon={Clock}
-            title="No activity yet"
-            description="Transactions will appear here once you start trading"
-          />
-        ) : (
-          <div className="space-y-2">
-            {recentTxs.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-surface-tertiary"
-              >
-                <div className="flex items-center gap-3">
-                  {tx.direction === 'buy' ? (
-                    <ArrowDownRight className="w-4 h-4 text-success" />
-                  ) : (
-                    <ArrowUpRight className="w-4 h-4 text-danger" />
-                  )}
-                  <div>
-                    <span className="text-sm font-medium text-white capitalize">
-                      {tx.direction}
-                    </span>
-                    <span className="text-xs text-gray-500 ml-2">
-                      {tx.tokenMint.slice(0, 6)}...
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-mono text-gray-300">
-                    {tx.amountSol.toFixed(4)} SOL
-                  </span>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full ${
-                      tx.status === 'confirmed'
-                        ? 'bg-success/15 text-success'
-                        : tx.status === 'failed'
-                          ? 'bg-danger/15 text-danger'
-                          : 'bg-yellow-500/15 text-yellow-500'
-                    }`}
-                  >
-                    {tx.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      <div className="win-groupbox">
+        <span className="win-groupbox-label">Recent Activity</span>
+        <div className="mt-2">
+          {recentTxs.length === 0 ? (
+            <EmptyState
+              icon={Clock}
+              title="No activity yet"
+              description="Transactions will appear here once you start trading."
+            />
+          ) : (
+            <div className="shadow-win-field bg-white">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="bg-win-bg">
+                    <th className="text-left px-1 py-0.5 font-normal border-b border-win-dark">Dir</th>
+                    <th className="text-left px-1 py-0.5 font-normal border-b border-win-dark">Token</th>
+                    <th className="text-right px-1 py-0.5 font-normal border-b border-win-dark">Amount</th>
+                    <th className="text-center px-1 py-0.5 font-normal border-b border-win-dark">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentTxs.map((tx, i) => (
+                    <tr
+                      key={tx.id}
+                      className={i % 2 === 0 ? 'bg-white' : 'bg-win-mid'}
+                    >
+                      <td className="px-1 py-0.5">
+                        <span className={tx.direction === 'buy' ? 'text-success' : 'text-danger'}>
+                          {tx.direction === 'buy' ? 'BUY' : 'SELL'}
+                        </span>
+                      </td>
+                      <td className="px-1 py-0.5 font-sys text-[10px]">
+                        {tx.tokenMint.slice(0, 8)}...
+                      </td>
+                      <td className="px-1 py-0.5 text-right font-sys text-[10px]">
+                        {tx.amountSol.toFixed(4)} SOL
+                      </td>
+                      <td className="px-1 py-0.5 text-center">
+                        <span
+                          className={
+                            tx.status === 'confirmed'
+                              ? 'text-success'
+                              : tx.status === 'failed'
+                                ? 'text-danger'
+                                : 'text-warning'
+                          }
+                        >
+                          {tx.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

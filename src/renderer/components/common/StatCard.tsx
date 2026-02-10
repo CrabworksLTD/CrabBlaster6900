@@ -8,18 +8,16 @@ interface StatCardProps {
   subtitle?: string
 }
 
-export function StatCard({ label, value, icon: Icon, color = 'text-accent', subtitle }: StatCardProps) {
+export function StatCard({ label, value, icon: Icon, subtitle }: StatCardProps) {
   return (
-    <div className="card">
+    <div className="shadow-win-in bg-white p-2">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-gray-400">{label}</p>
-          <p className="text-2xl font-bold mt-1 text-white">{value}</p>
-          {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+          <p className="text-[10px] text-win-dark">{label}</p>
+          <p className="text-[14px] font-bold text-black mt-0.5">{value}</p>
+          {subtitle && <p className="text-[10px] text-win-dark mt-0.5">{subtitle}</p>}
         </div>
-        <div className={`p-2.5 rounded-lg bg-surface-tertiary ${color}`}>
-          <Icon className="w-5 h-5" />
-        </div>
+        <Icon className="w-4 h-4 text-win-dark" strokeWidth={1.5} />
       </div>
     </div>
   )

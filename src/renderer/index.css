@@ -4,65 +4,134 @@
 
 @layer base {
   body {
-    @apply bg-surface text-gray-100;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    @apply bg-win-teal text-black font-win text-[11px];
+    -webkit-font-smoothing: none;
+    image-rendering: pixelated;
+  }
+
+  * {
+    @apply outline-none;
   }
 
   ::-webkit-scrollbar {
-    @apply w-2;
+    @apply w-4 bg-win-mid;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-transparent;
+    background: repeating-conic-gradient(#c0c0c0 0% 25%, #ffffff 0% 50%) 50% / 2px 2px;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-border rounded-full;
+    @apply bg-win-bg shadow-win-btn;
   }
 
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-border-hover;
+  ::-webkit-scrollbar-button {
+    @apply bg-win-bg shadow-win-btn h-4;
   }
 }
 
 @layer components {
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150
-      focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface
-      disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply px-4 py-1 font-win text-[11px] shadow-win-btn bg-win-bg text-black
+      active:shadow-win-btn-pressed active:pt-[5px] active:pb-[3px]
+      focus:outline-dotted focus:outline-1 focus:outline-offset-[-4px] focus:outline-black
+      disabled:text-win-dark disabled:cursor-default;
+    min-width: 75px;
+    min-height: 23px;
   }
 
   .btn-primary {
-    @apply btn bg-accent hover:bg-accent-hover text-white;
+    @apply btn;
+    outline: 1px solid black;
+    outline-offset: -1px;
   }
 
   .btn-secondary {
-    @apply btn bg-surface-tertiary hover:bg-border text-gray-300 border border-border;
+    @apply btn;
   }
 
   .btn-danger {
-    @apply btn bg-danger/20 hover:bg-danger/30 text-danger border border-danger/30;
+    @apply btn text-danger;
   }
 
   .btn-success {
-    @apply btn bg-success/20 hover:bg-success/30 text-success border border-success/30;
+    @apply btn text-success;
   }
 
   .card {
-    @apply bg-surface-secondary border border-border rounded-xl p-5;
+    @apply bg-win-bg shadow-win-out p-3;
   }
 
   .input {
-    @apply w-full bg-surface-tertiary border border-border rounded-lg px-3 py-2 text-sm text-gray-100
-      placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent
-      transition-all duration-150;
+    @apply w-full bg-white shadow-win-field px-1 py-0.5 text-[11px] text-black font-win
+      placeholder-win-dark;
+    height: 21px;
   }
 
   .label {
-    @apply block text-sm font-medium text-gray-400 mb-1.5;
+    @apply block text-[11px] font-win text-black mb-1;
   }
 
   .select {
-    @apply input appearance-none cursor-pointer;
+    @apply input appearance-none cursor-pointer pr-5;
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='16' height='16' fill='%23C0C0C0'/%3E%3Cpath d='M4 6L8 10L12 6' stroke='black' stroke-width='1'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0px center;
+  }
+
+  .win-groupbox {
+    @apply border border-win-dark p-3 pt-1 relative mt-3;
+    border-color: #808080;
+    box-shadow: 1px 1px 0 #ffffff;
+  }
+
+  .win-groupbox-label {
+    @apply absolute -top-2 left-2 bg-win-bg px-1 text-[11px] font-win;
+  }
+
+  .win-titlebar {
+    @apply flex items-center justify-between px-1 py-0.5 text-white font-bold text-[11px];
+    background: linear-gradient(90deg, #000080 0%, #1084d0 100%);
+    height: 18px;
+  }
+
+  .win-titlebar-inactive {
+    @apply flex items-center justify-between px-1 py-0.5 text-win-mid font-bold text-[11px];
+    background: linear-gradient(90deg, #808080 0%, #b0b0b0 100%);
+    height: 18px;
+  }
+
+  .win-titlebar-btn {
+    @apply bg-win-bg shadow-win-btn text-black text-[8px] leading-none font-bold
+      active:shadow-win-btn-pressed flex items-center justify-center;
+    width: 16px;
+    height: 14px;
+  }
+
+  .win-window {
+    @apply bg-win-bg shadow-win-out;
+    border: 2px solid;
+    border-color: #d4d0c8 #0a0a0a #0a0a0a #d4d0c8;
+  }
+
+  .win-inset {
+    @apply shadow-win-in bg-white;
+  }
+
+  .win-status-bar {
+    @apply shadow-win-in bg-win-bg text-[11px] px-1 py-0.5 flex;
+  }
+
+  .win-tab {
+    @apply bg-win-bg shadow-win-btn px-3 py-1 text-[11px] -mb-px relative;
+  }
+
+  .win-tab-active {
+    @apply bg-win-bg px-3 py-1 text-[11px] -mb-px relative z-10 font-bold;
+    border: 1px solid #808080;
+    border-bottom: 1px solid #c0c0c0;
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+    box-shadow: -1px -1px 0 #ffffff, 1px -1px 0 #ffffff;
   }
 }

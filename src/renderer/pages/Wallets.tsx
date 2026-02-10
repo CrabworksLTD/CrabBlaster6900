@@ -1,15 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-  Wallet,
-  Plus,
-  Import,
-  RefreshCw,
-  Trash2,
-  Send,
-  ArrowDownToLine,
-  Copy,
-  Check
-} from 'lucide-react'
+import { Wallet, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWalletStore } from '../stores/wallet-store'
 import { Modal } from '../components/common/Modal'
@@ -33,21 +23,12 @@ export function WalletsPage() {
   const [showGenerate, setShowGenerate] = useState(false)
   const [showFund, setShowFund] = useState(false)
   const [showReclaim, setShowReclaim] = useState(false)
-  const [copiedId, setCopiedId] = useState<string | null>(null)
 
-  // Import form
   const [importKey, setImportKey] = useState('')
   const [importLabel, setImportLabel] = useState('')
-
-  // Generate form
   const [genCount, setGenCount] = useState(5)
   const [genPrefix, setGenPrefix] = useState('Sub')
-
-  // Fund form
   const [fundAmount, setFundAmount] = useState('0.01')
-  const [fundWalletIds, setFundWalletIds] = useState<string[]>([])
-
-  // Processing state
   const [processing, setProcessing] = useState(false)
 
   useEffect(() => {
@@ -87,8 +68,7 @@ export function WalletsPage() {
     if (!mainWallet) return
     setProcessing(true)
     try {
-      const targets = fundWalletIds.length > 0 ? fundWalletIds : subWallets.map((w) => w.id)
-      await fundWallets(mainWallet.id, targets, parseFloat(fundAmount))
+      await fundWallets(mainWallet.id, subWallets.map((w) => w.id), parseFloat(fundAmount))
       toast.success('Wallets funded successfully')
       setShowFund(false)
     } catch (err: any) {
@@ -101,8 +81,7 @@ export function WalletsPage() {
     if (!mainWallet) return
     setProcessing(true)
     try {
-      const targets = subWallets.map((w) => w.id)
-      await reclaimWallets(targets, mainWallet.id)
+      await reclaimWallets(subWallets.map((w) => w.id), mainWallet.id)
       toast.success('SOL reclaimed successfully')
       setShowReclaim(false)
     } catch (err: any) {
@@ -111,268 +90,199 @@ export function WalletsPage() {
     setProcessing(false)
   }
 
-  const handleCopy = (publicKey: string, id: string) => {
-    navigator.clipboard.writeText(publicKey)
-    setCopiedId(id)
-    setTimeout(() => setCopiedId(null), 2000)
-  }
-
-  const handleDelete = async (walletId: string) => {
-    try {
-      await deleteWallet(walletId)
-      toast.success('Wallet deleted')
-    } catch (err: any) {
-      toast.error(err?.message || 'Delete failed')
-    }
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text)
+    toast.success('Copied to clipboard')
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Wallet Management</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage your main and sub-wallets</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => refreshBalances()} className="btn-secondary" disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-2 inline ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          <button onClick={() => setShowImport(true)} className="btn-secondary">
-            <Import className="w-4 h-4 mr-2 inline" />
-            Import
-          </button>
-          <button onClick={() => setShowGenerate(true)} className="btn-primary">
-            <Plus className="w-4 h-4 mr-2 inline" />
-            Generate
-          </button>
-        </div>
+    <div className="space-y-3">
+      {/* Toolbar */}
+      <div className="shadow-win-out bg-win-bg p-1 flex gap-1">
+        <button onClick={() => refreshBalances()} className="btn-secondary" disabled={loading}>
+          {loading ? <Spinner /> : 'Refresh'}
+        </button>
+        <button onClick={() => setShowImport(true)} className="btn-secondary">
+          Import Main
+        </button>
+        <button onClick={() => setShowGenerate(true)} className="btn-secondary">
+          Generate Subs
+        </button>
+        <div className="flex-1" />
+        {subWallets.length > 0 && mainWallet && (
+          <>
+            <button onClick={() => setShowFund(true)} className="btn-secondary">
+              Fund All
+            </button>
+            <button onClick={() => setShowReclaim(true)} className="btn-danger">
+              Reclaim All
+            </button>
+          </>
+        )}
       </div>
 
       {/* Main Wallet */}
-      <div className="card">
-        <h2 className="text-base font-semibold text-white mb-3">Main Wallet</h2>
-        {mainWallet ? (
-          <div className="flex items-center justify-between p-3 rounded-lg bg-surface-tertiary">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
-                <Wallet className="w-4 h-4 text-accent" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-white">{mainWallet.label}</p>
-                <p className="text-xs text-gray-500 font-mono">
+      <div className="win-groupbox">
+        <span className="win-groupbox-label">Main Wallet</span>
+        <div className="mt-2">
+          {mainWallet ? (
+            <div className="shadow-win-field bg-white p-2 flex items-center justify-between">
+              <div className="text-[11px]">
+                <span className="font-bold">{mainWallet.label}</span>
+                <span
+                  className="font-sys text-[10px] ml-2 cursor-pointer hover:underline text-win-blue"
+                  onClick={() => handleCopy(mainWallet.publicKey)}
+                >
                   {mainWallet.publicKey.slice(0, 8)}...{mainWallet.publicKey.slice(-8)}
-                </p>
+                </span>
               </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-lg font-bold font-mono text-white">
+              <span className="font-sys text-[11px] font-bold">
                 {mainWallet.balanceSol.toFixed(4)} SOL
               </span>
-              <button
-                onClick={() => handleCopy(mainWallet.publicKey, mainWallet.id)}
-                className="p-2 rounded-lg hover:bg-border text-gray-400 hover:text-white transition-colors"
-              >
-                {copiedId === mainWallet.id ? (
-                  <Check className="w-4 h-4 text-success" />
-                ) : (
-                  <Copy className="w-4 h-4" />
-                )}
-              </button>
             </div>
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500">
-            No main wallet imported.{' '}
-            <button onClick={() => setShowImport(true)} className="text-accent hover:underline">
-              Import one
-            </button>
-          </p>
-        )}
+          ) : (
+            <p className="text-[11px] text-win-dark p-2">
+              No main wallet.{' '}
+              <button onClick={() => setShowImport(true)} className="text-win-blue underline cursor-pointer">
+                Import one
+              </button>
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Sub Wallets */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-white">
-            Sub-Wallets ({subWallets.length})
-          </h2>
-          {subWallets.length > 0 && mainWallet && (
-            <div className="flex items-center gap-2">
-              <button onClick={() => setShowFund(true)} className="btn-secondary text-xs">
-                <Send className="w-3.5 h-3.5 mr-1.5 inline" />
-                Fund All
-              </button>
-              <button onClick={() => setShowReclaim(true)} className="btn-danger text-xs">
-                <ArrowDownToLine className="w-3.5 h-3.5 mr-1.5 inline" />
-                Reclaim All
-              </button>
+      <div className="win-groupbox">
+        <span className="win-groupbox-label">Sub-Wallets ({subWallets.length})</span>
+        <div className="mt-2">
+          {subWallets.length === 0 ? (
+            <EmptyState
+              icon={Wallet}
+              title="No sub-wallets"
+              description="Generate sub-wallets for the bundle and volume bots."
+              action={{ label: 'Generate Wallets', onClick: () => setShowGenerate(true) }}
+            />
+          ) : (
+            <div className="shadow-win-field bg-white max-h-[350px] overflow-y-auto">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="bg-win-bg sticky top-0">
+                    <th className="text-left px-1 py-0.5 font-normal border-b border-win-dark">#</th>
+                    <th className="text-left px-1 py-0.5 font-normal border-b border-win-dark">Label</th>
+                    <th className="text-left px-1 py-0.5 font-normal border-b border-win-dark">Address</th>
+                    <th className="text-right px-1 py-0.5 font-normal border-b border-win-dark">Balance</th>
+                    <th className="text-center px-1 py-0.5 font-normal border-b border-win-dark">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subWallets.map((wallet, i) => (
+                    <tr
+                      key={wallet.id}
+                      className={`${i % 2 === 0 ? 'bg-white' : 'bg-win-mid'} hover:bg-win-blue hover:text-white group`}
+                    >
+                      <td className="px-1 py-0.5">{i + 1}</td>
+                      <td className="px-1 py-0.5">{wallet.label}</td>
+                      <td
+                        className="px-1 py-0.5 font-sys text-[10px] cursor-pointer"
+                        onClick={() => handleCopy(wallet.publicKey)}
+                      >
+                        {wallet.publicKey.slice(0, 6)}...{wallet.publicKey.slice(-6)}
+                      </td>
+                      <td className="px-1 py-0.5 text-right font-sys text-[10px]">
+                        {wallet.balanceSol.toFixed(4)}
+                      </td>
+                      <td className="px-1 py-0.5 text-center">
+                        <button
+                          onClick={() => {
+                            deleteWallet(wallet.id)
+                            toast.success('Wallet deleted')
+                          }}
+                          className="text-[10px] text-danger group-hover:text-white hover:underline"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
-
-        {subWallets.length === 0 ? (
-          <EmptyState
-            icon={Wallet}
-            title="No sub-wallets"
-            description="Generate sub-wallets to use with the bundle and volume bots"
-            action={{ label: 'Generate Wallets', onClick: () => setShowGenerate(true) }}
-          />
-        ) : (
-          <div className="space-y-1.5">
-            {subWallets.map((wallet) => (
-              <div
-                key={wallet.id}
-                className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-surface-tertiary hover:bg-border/50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 bg-surface rounded-md flex items-center justify-center">
-                    <Wallet className="w-3.5 h-3.5 text-gray-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-200">{wallet.label}</p>
-                    <p className="text-xs text-gray-500 font-mono">
-                      {wallet.publicKey.slice(0, 6)}...{wallet.publicKey.slice(-6)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-mono text-gray-300">
-                    {wallet.balanceSol.toFixed(4)} SOL
-                  </span>
-                  <button
-                    onClick={() => handleCopy(wallet.publicKey, wallet.id)}
-                    className="p-1.5 rounded hover:bg-border text-gray-500 hover:text-white transition-colors"
-                  >
-                    {copiedId === wallet.id ? (
-                      <Check className="w-3.5 h-3.5 text-success" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleDelete(wallet.id)}
-                    className="p-1.5 rounded hover:bg-danger/20 text-gray-500 hover:text-danger transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Import Modal */}
       <Modal open={showImport} onClose={() => setShowImport(false)} title="Import Main Wallet">
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div>
-            <label className="label">Label</label>
-            <input
-              className="input"
-              value={importLabel}
-              onChange={(e) => setImportLabel(e.target.value)}
-              placeholder="Main Wallet"
-            />
+            <label className="label">Label:</label>
+            <input className="input" value={importLabel} onChange={(e) => setImportLabel(e.target.value)} placeholder="Main Wallet" />
           </div>
           <div>
-            <label className="label">Secret Key (Base58)</label>
-            <input
-              type="password"
-              className="input"
-              value={importKey}
-              onChange={(e) => setImportKey(e.target.value)}
-              placeholder="Enter your base58 secret key"
-            />
+            <label className="label">Secret Key (Base58):</label>
+            <input type="password" className="input" value={importKey} onChange={(e) => setImportKey(e.target.value)} placeholder="Enter base58 secret key" />
           </div>
-          <p className="text-xs text-gray-500">
-            Your key is encrypted via OS Keychain and never leaves this device.
-          </p>
-          <button
-            onClick={handleImport}
-            disabled={!importKey || !importLabel || processing}
-            className="btn-primary w-full"
-          >
-            {processing ? <Spinner size="sm" /> : 'Import Wallet'}
-          </button>
+          <p className="text-[10px] text-win-dark">Your key is encrypted via OS Keychain.</p>
+          <div className="flex justify-end gap-1 pt-1">
+            <button onClick={() => setShowImport(false)} className="btn-secondary">Cancel</button>
+            <button onClick={handleImport} disabled={!importKey || !importLabel || processing} className="btn-primary">
+              {processing ? <Spinner /> : 'OK'}
+            </button>
+          </div>
         </div>
       </Modal>
 
       {/* Generate Modal */}
       <Modal open={showGenerate} onClose={() => setShowGenerate(false)} title="Generate Sub-Wallets">
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div>
-            <label className="label">Number of Wallets</label>
-            <input
-              type="number"
-              className="input"
-              value={genCount}
-              onChange={(e) => setGenCount(parseInt(e.target.value) || 1)}
-              min={1}
-              max={50}
-            />
+            <label className="label">Number of Wallets:</label>
+            <input type="number" className="input" value={genCount} onChange={(e) => setGenCount(parseInt(e.target.value) || 1)} min={1} max={50} />
           </div>
           <div>
-            <label className="label">Label Prefix</label>
-            <input
-              className="input"
-              value={genPrefix}
-              onChange={(e) => setGenPrefix(e.target.value)}
-              placeholder="Sub"
-            />
+            <label className="label">Label Prefix:</label>
+            <input className="input" value={genPrefix} onChange={(e) => setGenPrefix(e.target.value)} placeholder="Sub" />
           </div>
-          <button
-            onClick={handleGenerate}
-            disabled={processing}
-            className="btn-primary w-full"
-          >
-            {processing ? <Spinner size="sm" /> : `Generate ${genCount} Wallets`}
-          </button>
+          <div className="flex justify-end gap-1 pt-1">
+            <button onClick={() => setShowGenerate(false)} className="btn-secondary">Cancel</button>
+            <button onClick={handleGenerate} disabled={processing} className="btn-primary">
+              {processing ? <Spinner /> : 'OK'}
+            </button>
+          </div>
         </div>
       </Modal>
 
       {/* Fund Modal */}
       <Modal open={showFund} onClose={() => setShowFund(false)} title="Fund Sub-Wallets">
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div>
-            <label className="label">SOL per Wallet</label>
-            <input
-              type="number"
-              className="input"
-              value={fundAmount}
-              onChange={(e) => setFundAmount(e.target.value)}
-              step="0.001"
-              min="0.001"
-            />
+            <label className="label">SOL per Wallet:</label>
+            <input type="number" className="input" value={fundAmount} onChange={(e) => setFundAmount(e.target.value)} step="0.001" min="0.001" />
           </div>
-          <p className="text-sm text-gray-400">
-            Total cost: ~{(parseFloat(fundAmount || '0') * subWallets.length).toFixed(4)} SOL for{' '}
-            {subWallets.length} wallets
+          <p className="text-[11px] text-win-dark">
+            Total: ~{(parseFloat(fundAmount || '0') * subWallets.length).toFixed(4)} SOL for {subWallets.length} wallets
           </p>
-          <button
-            onClick={handleFund}
-            disabled={processing || !mainWallet}
-            className="btn-primary w-full"
-          >
-            {processing ? <Spinner size="sm" /> : 'Fund All Sub-Wallets'}
-          </button>
+          <div className="flex justify-end gap-1 pt-1">
+            <button onClick={() => setShowFund(false)} className="btn-secondary">Cancel</button>
+            <button onClick={handleFund} disabled={processing || !mainWallet} className="btn-primary">
+              {processing ? <Spinner /> : 'OK'}
+            </button>
+          </div>
         </div>
       </Modal>
 
       {/* Reclaim Modal */}
       <Modal open={showReclaim} onClose={() => setShowReclaim(false)} title="Reclaim SOL">
-        <div className="space-y-4">
-          <p className="text-sm text-gray-400">
-            This will send all SOL (minus tx fees) from {subWallets.length} sub-wallets back to the
-            main wallet.
+        <div className="space-y-3">
+          <p className="text-[11px]">
+            Send all SOL (minus tx fees) from {subWallets.length} sub-wallets back to the main wallet?
           </p>
-          <button
-            onClick={handleReclaim}
-            disabled={processing || !mainWallet}
-            className="btn-danger w-full"
-          >
-            {processing ? <Spinner size="sm" /> : 'Reclaim All SOL'}
-          </button>
+          <div className="flex justify-end gap-1 pt-1">
+            <button onClick={() => setShowReclaim(false)} className="btn-secondary">Cancel</button>
+            <button onClick={handleReclaim} disabled={processing || !mainWallet} className="btn-primary">
+              {processing ? <Spinner /> : 'OK'}
+            </button>
+          </div>
         </div>
       </Modal>
     </div>

@@ -4,8 +4,7 @@ import {
   Wallet,
   Settings2,
   Bot,
-  Activity,
-  Zap
+  Activity
 } from 'lucide-react'
 
 const navItems = [
@@ -18,40 +17,28 @@ const navItems = [
 
 export function Sidebar() {
   return (
-    <aside className="w-64 bg-surface-secondary border-r border-border flex flex-col h-screen">
-      <div className="p-5 border-b border-border">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-accent rounded-lg flex items-center justify-center">
-            <Zap className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-base font-bold text-white">CrabBlaster6900</h1>
-            <p className="text-xs text-gray-500">Bundle & Volume</p>
-          </div>
-        </div>
-      </div>
-
-      <nav className="flex-1 py-4 px-3 space-y-1">
+    <aside className="w-44 bg-win-bg border-r-2 border-r-white shadow-win-in flex flex-col">
+      <div className="p-1">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              `flex items-center gap-2 px-2 py-1 text-[11px] cursor-default ${
                 isActive
-                  ? 'bg-accent/15 text-accent'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-surface-tertiary'
+                  ? 'bg-win-blue text-white'
+                  : 'text-black hover:bg-win-blue hover:text-white'
               }`
             }
           >
-            <Icon className="w-4.5 h-4.5" />
+            <Icon className="w-4 h-4" strokeWidth={1.5} />
             {label}
           </NavLink>
         ))}
-      </nav>
+      </div>
 
-      <div className="p-4 border-t border-border">
-        <div className="text-xs text-gray-600 text-center">v1.0.0</div>
+      <div className="mt-auto border-t border-win-dark p-1">
+        <div className="text-[10px] text-win-dark text-center">v1.0.0</div>
       </div>
     </aside>
   )
