@@ -1,7 +1,7 @@
 {
-  "name": "solana-bot",
+  "name": "crabblaster6900",
   "version": "1.0.0",
-  "description": "Solana Bundle & Volume Trading Bot",
+  "description": "CrabBlaster6900 — Solana Bundle & Volume Trading Bot",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
