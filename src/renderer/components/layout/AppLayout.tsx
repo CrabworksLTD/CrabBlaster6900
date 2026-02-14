@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Toaster } from 'sonner'
-
+import crabIcon from '../../assets/crab-16.png'
 export function AppLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-win-teal p-2">
@@ -9,13 +9,14 @@ export function AppLayout() {
       <div className="win-window flex flex-1 flex-col">
         {/* Title Bar */}
         <div className="win-titlebar select-none" style={{ WebkitAppRegion: 'drag' } as any}>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 pl-16">
             <img
-              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect x='2' y='2' width='12' height='12' fill='%23c0c0c0' stroke='%23000080' stroke-width='1'/%3E%3Crect x='4' y='4' width='3' height='3' fill='%23000080'/%3E%3Crect x='9' y='4' width='3' height='3' fill='%23ff0000'/%3E%3Crect x='4' y='9' width='3' height='3' fill='%2300ff00'/%3E%3Crect x='9' y='9' width='3' height='3' fill='%23ffff00'/%3E%3C/svg%3E"
+              src={crabIcon}
               alt=""
               className="w-4 h-4"
+              style={{ imageRendering: 'pixelated' }}
             />
-            <span>CrabBlaster6900</span>
+            <span>CrabBlaster9000</span>
           </div>
           <div className="flex gap-0.5" style={{ WebkitAppRegion: 'no-drag' } as any}>
             <button className="win-titlebar-btn">_</button>
@@ -43,7 +44,7 @@ export function AppLayout() {
         {/* Status Bar */}
         <div className="win-status-bar gap-1">
           <div className="shadow-win-in flex-1 px-1">Ready</div>
-          <div className="shadow-win-in w-32 px-1 text-center">CrabBlaster6900</div>
+          <div className="shadow-win-in w-32 px-1 text-center">CrabBlaster9000</div>
         </div>
       </div>
 

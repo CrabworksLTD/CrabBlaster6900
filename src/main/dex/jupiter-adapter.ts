@@ -2,6 +2,7 @@ import { Keypair, VersionedTransaction } from '@solana/web3.js'
 import type { DexAdapter } from './dex-interface'
 import type { SwapQuote, SwapParams } from '@shared/types'
 import { getConnection } from '../services/rpc-manager'
+import { validateSwapTransaction } from './transaction-validator'
 
 const JUPITER_API_BASE = 'https://quote-api.jup.ag/v6'
 
@@ -58,7 +59,9 @@ export class JupiterAdapter implements DexAdapter {
     const swapData = await swapRes.json()
 
     const txBuf = Buffer.from(swapData.swapTransaction, 'base64')
-    return VersionedTransaction.deserialize(txBuf)
+    const tx = VersionedTransaction.deserialize(txBuf)
+    validateSwapTransaction(tx, params.walletPublicKey, 'Jupiter')
+    return tx
   }
 
   async executeSwap(
@@ -71,6 +74,7 @@ export class JupiterAdapter implements DexAdapter {
     tx.sign([signer])
 
     const connection = getConnection()
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
     const rawTx = tx.serialize()
 
     const signature = await connection.sendRawTransaction(rawTx, {
@@ -78,7 +82,10 @@ export class JupiterAdapter implements DexAdapter {
       maxRetries: 3
     })
 
-    await connection.confirmTransaction(signature, 'confirmed')
+    await connection.confirmTransaction(
+      { signature, blockhash, lastValidBlockHeight },
+      'confirmed'
+    )
 
     return {
       signature,

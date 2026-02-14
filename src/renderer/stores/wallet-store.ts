@@ -11,7 +11,10 @@ interface WalletStore {
   generateWallets: (count: number, labelPrefix: string) => Promise<WalletInfo[]>
   deleteWallet: (walletId: string) => Promise<void>
   fundWallets: (fromId: string, toIds: string[], amountEach: number) => Promise<void>
+  fundWalletsRandom: (fromId: string, allocations: { walletId: string; amountSol: number }[]) => Promise<void>
+  fundWalletsHopped: (fromId: string, allocations: { walletId: string; amountSol: number }[]) => Promise<void>
   reclaimWallets: (walletIds: string[], toId: string) => Promise<void>
+  sellTokens: (walletIds: string[], tokenMint: string, dex: string, slippageBps: number) => Promise<{ success: boolean; results: { walletId: string; status: string; signature: string }[] }>
   refreshBalances: () => Promise<void>
 }
 
@@ -62,12 +65,39 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
     await get().refreshBalances()
   },
 
+  fundWalletsRandom: async (fromId: string, allocations: { walletId: string; amountSol: number }[]) => {
+    await window.electronAPI.invoke('wallet:fund-random', {
+      fromWalletId: fromId,
+      allocations
+    })
+    await get().refreshBalances()
+  },
+
+  fundWalletsHopped: async (fromId: string, allocations: { walletId: string; amountSol: number }[]) => {
+    await window.electronAPI.invoke('wallet:fund-hopped', {
+      fromWalletId: fromId,
+      allocations
+    })
+    await get().refreshBalances()
+  },
+
   reclaimWallets: async (walletIds: string[], toId: string) => {
     await window.electronAPI.invoke('wallet:reclaim', {
       walletIds,
       toWalletId: toId
     })
     await get().refreshBalances()
+  },
+
+  sellTokens: async (walletIds: string[], tokenMint: string, dex: string, slippageBps: number) => {
+    const result = await window.electronAPI.invoke('wallet:sell', {
+      walletIds,
+      tokenMint,
+      dex,
+      slippageBps
+    })
+    await get().refreshBalances()
+    return result
   },
 
   refreshBalances: async () => {

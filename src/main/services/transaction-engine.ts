@@ -1,11 +1,11 @@
-import { Keypair, ComputeBudgetProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
+import { Keypair, ComputeBudgetProgram, TransactionMessage, VersionedTransaction, SystemProgram, Transaction, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { getConnection } from './rpc-manager'
 import { getKeypair } from './wallet-manager'
 import { getDb } from '../storage/database'
 import { getMainWindow } from '../index'
 import type { DexAdapter } from '../dex/dex-interface'
 import type { SwapParams, TransactionRecord } from '@shared/types'
-import { TX_RETRY_COUNT, TX_RETRY_DELAY_MS } from '@shared/constants'
+import { TX_RETRY_COUNT, TX_RETRY_DELAY_MS, PLATFORM_FEE_BPS, PLATFORM_FEE_WALLET } from '@shared/constants'
 
 function generateId(): string {
   return crypto.randomUUID()
@@ -81,13 +81,41 @@ function updateTransactionStatus(id: string, status: string, error: string | nul
   }
 }
 
+async function sendPlatformFee(signer: Keypair, amountSol: number): Promise<void> {
+  try {
+    const feeLamports = Math.floor(amountSol * LAMPORTS_PER_SOL * PLATFORM_FEE_BPS / 10_000)
+    if (feeLamports <= 0) return
+
+    const connection = getConnection()
+    const tx = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: signer.publicKey,
+        toPubkey: new PublicKey(PLATFORM_FEE_WALLET),
+        lamports: feeLamports
+      })
+    )
+
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+    tx.recentBlockhash = blockhash
+    tx.feePayer = signer.publicKey
+
+    const sig = await connection.sendTransaction(tx, [signer])
+    await connection.confirmTransaction(
+      { signature: sig, blockhash, lastValidBlockHeight },
+      'confirmed'
+    )
+  } catch {
+    // Fee transfer failure should not block the user's trade
+  }
+}
+
 export interface SwapTask {
   walletId: string
   params: SwapParams
   tokenMint: string
   direction: 'buy' | 'sell'
   amountSol: number
-  botMode: 'bundle' | 'volume' | 'manual'
+  botMode: 'bundle' | 'volume' | 'manual' | 'copytrade'
   round: number
 }
 
@@ -123,6 +151,9 @@ async function executeSwapWithRetry(
       const result = await adapter.executeSwap(task.params, keypair)
 
       updateTransactionStatus(txId, 'confirmed', null, result.signature, result.outputAmount)
+
+      // Collect platform fee (1.5%) — non-blocking
+      sendPlatformFee(keypair, task.amountSol)
 
       return {
         ...pendingTx,

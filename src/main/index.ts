@@ -1,4 +1,5 @@
-import { app, BrowserWindow, shell } from 'electron'
+import 'dotenv/config'
+import { app, BrowserWindow, shell, Menu } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { initDatabase } from './storage/database'
@@ -6,6 +7,8 @@ import { registerWalletIpc } from './ipc/wallet.ipc'
 import { registerBotIpc } from './ipc/bot.ipc'
 import { registerTransactionIpc } from './ipc/transaction.ipc'
 import { registerSettingsIpc } from './ipc/settings.ipc'
+import { registerLicenseIpc } from './ipc/license.ipc'
+import { autoUpdater } from 'electron-updater'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -30,8 +33,28 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
+  // Right-click context menu with paste support
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    const contextMenu = Menu.buildFromTemplate([
+      { role: 'cut', visible: params.isEditable },
+      { role: 'copy', visible: params.selectionText.length > 0 },
+      { role: 'paste', visible: params.isEditable },
+      { role: 'selectAll', visible: params.isEditable }
+    ])
+    contextMenu.popup()
+  })
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    // Only allow HTTPS URLs to trusted domains
+    const ALLOWED_DOMAINS = ['solscan.io', 'whop.com', 'crabblaster.app', 'github.com']
+    try {
+      const url = new URL(details.url)
+      if (url.protocol === 'https:' && ALLOWED_DOMAINS.some((d) => url.hostname === d || url.hostname.endsWith(`.${d}`))) {
+        shell.openExternal(details.url)
+      }
+    } catch {
+      // Invalid URL, don't open
+    }
     return { action: 'deny' }
   })
 
@@ -43,14 +66,35 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // macOS needs an Edit menu for clipboard shortcuts (Cmd+C/V/X) to work
+  const template: Electron.MenuItemConstructorOptions[] = [
+    { role: 'appMenu' },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    }
+  ]
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+
   initDatabase()
 
   registerWalletIpc()
   registerBotIpc()
   registerTransactionIpc()
   registerSettingsIpc()
+  registerLicenseIpc()
 
   createWindow()
+
+  autoUpdater.checkForUpdatesAndNotify()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

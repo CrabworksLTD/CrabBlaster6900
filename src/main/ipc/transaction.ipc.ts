@@ -3,6 +3,19 @@ import { z } from 'zod'
 import { getDb } from '../storage/database'
 import type { TransactionRecord } from '@shared/types'
 
+function escapeCsvField(value: unknown): string {
+  const str = String(value ?? '')
+  // Prevent CSV injection: prefix formula-starting chars with a single quote
+  if (/^[=+\-@\t\r]/.test(str)) {
+    return `"'${str.replace(/"/g, '""')}"`
+  }
+  // Quote fields containing commas, quotes, or newlines
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`
+  }
+  return str
+}
+
 function mapRow(row: any): TransactionRecord {
   return {
     id: row.id,
@@ -85,7 +98,7 @@ export function registerTransactionIpc(): void {
         tx.botMode,
         tx.round,
         new Date(tx.createdAt).toISOString()
-      ].join(',')
+      ].map(escapeCsvField).join(',')
     )
 
     return [headers.join(','), ...csvRows].join('\n')

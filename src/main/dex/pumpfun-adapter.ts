@@ -5,13 +5,13 @@ import {
   TransactionMessage,
   VersionedTransaction,
   SystemProgram,
-  SYSVAR_RENT_PUBKEY,
   LAMPORTS_PER_SOL
 } from '@solana/web3.js'
 import {
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddress
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction
 } from '@solana/spl-token'
 import type { DexAdapter } from './dex-interface'
 import type { SwapQuote, SwapParams } from '@shared/types'
@@ -22,6 +22,7 @@ import {
   PUMP_FUN_GLOBAL,
   PUMP_FUN_FEE_RECIPIENT,
   PUMP_FUN_EVENT_AUTHORITY,
+  PUMP_FUN_FEE_PROGRAM,
   PUMP_FUN_FEE_BASIS_POINTS
 } from './pumpfun-constants'
 
@@ -32,6 +33,7 @@ interface BondingCurveState {
   realSolReserves: bigint
   tokenTotalSupply: bigint
   complete: boolean
+  creator: PublicKey
 }
 
 export class PumpFunAdapter implements DexAdapter {
@@ -41,6 +43,38 @@ export class PumpFunAdapter implements DexAdapter {
     const [pda] = PublicKey.findProgramAddressSync(
       [Buffer.from('bonding-curve'), mint.toBuffer()],
       PUMP_FUN_PROGRAM_ID
+    )
+    return pda
+  }
+
+  private getCreatorVaultPda(creator: PublicKey): PublicKey {
+    const [pda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('creator-vault'), creator.toBuffer()],
+      PUMP_FUN_PROGRAM_ID
+    )
+    return pda
+  }
+
+  private getGlobalVolumeAccumulatorPda(): PublicKey {
+    const [pda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('global_volume_accumulator')],
+      PUMP_FUN_PROGRAM_ID
+    )
+    return pda
+  }
+
+  private getUserVolumeAccumulatorPda(user: PublicKey): PublicKey {
+    const [pda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('user_volume_accumulator'), user.toBuffer()],
+      PUMP_FUN_PROGRAM_ID
+    )
+    return pda
+  }
+
+  private getFeeConfigPda(): PublicKey {
+    const [pda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('fee_config'), PUMP_FUN_PROGRAM_ID.toBuffer()],
+      PUMP_FUN_FEE_PROGRAM
     )
     return pda
   }
@@ -63,6 +97,8 @@ export class PumpFunAdapter implements DexAdapter {
     const realSolReserves = data.readBigUInt64LE(32)
     const tokenTotalSupply = data.readBigUInt64LE(40)
     const complete = data[48] === 1
+    // Creator pubkey is 32 bytes starting at offset 49
+    const creator = new PublicKey(data.subarray(49, 81))
 
     return {
       virtualTokenReserves,
@@ -70,14 +106,12 @@ export class PumpFunAdapter implements DexAdapter {
       realTokenReserves,
       realSolReserves,
       tokenTotalSupply,
-      complete
+      complete,
+      creator
     }
   }
 
   private calculateBuyAmount(solAmount: bigint, state: BondingCurveState): bigint {
-    // Constant product: k = virtualSolReserves * virtualTokenReserves
-    // After adding solAmount to sol reserves, new token reserves = k / (virtualSolReserves + solAmount)
-    // Tokens out = oldTokenReserves - newTokenReserves
     const k = state.virtualSolReserves * state.virtualTokenReserves
     const newSolReserves = state.virtualSolReserves + solAmount
     const newTokenReserves = k / newSolReserves
@@ -135,22 +169,40 @@ export class PumpFunAdapter implements DexAdapter {
     const bondingCurveAta = await getAssociatedTokenAddress(tokenMint, bondingCurvePda, true)
     const userAta = await getAssociatedTokenAddress(tokenMint, userPubkey)
 
-    const slippageMultiplier = isBuy
-      ? (10000 + params.slippageBps) / 10000
-      : (10000 - params.slippageBps) / 10000
+    // Fetch bonding curve state to get creator for creator_vault PDA
+    const state = await this.fetchBondingCurveState(tokenMint)
+    const creatorVault = this.getCreatorVaultPda(state.creator)
+    const feeConfig = this.getFeeConfigPda()
 
     const instructions: TransactionInstruction[] = []
 
     if (isBuy) {
+      // Create the user's ATA if it doesn't exist yet
+      const userAtaInfo = await connection.getAccountInfo(userAta)
+      if (!userAtaInfo) {
+        instructions.push(
+          createAssociatedTokenAccountInstruction(
+            userPubkey,
+            userAta,
+            userPubkey,
+            tokenMint
+          )
+        )
+      }
+
       const maxSolCost = BigInt(params.amount)
       const minTokensOut = BigInt(Math.floor(quote.outputAmount * (1 - params.slippageBps / 10000)))
 
-      // Build buy instruction
-      const data = Buffer.alloc(24)
-      // Discriminator for "buy" = 0x66063d1201daebea (first 8 bytes of sha256("global:buy"))
-      data.writeBigUInt64LE(0x66063d1201daebean, 0)
+      const globalVolumeAccumulator = this.getGlobalVolumeAccumulatorPda()
+      const userVolumeAccumulator = this.getUserVolumeAccumulatorPda(userPubkey)
+
+      // Build buy instruction (25 bytes: 8 discriminator + 8 amount + 8 maxSolCost + 1 trackVolume)
+      const data = Buffer.alloc(25)
+      // SHA256("global:buy")[:8] = [102, 6, 61, 18, 1, 218, 235, 234]
+      Buffer.from([102, 6, 61, 18, 1, 218, 235, 234]).copy(data, 0)
       data.writeBigUInt64LE(minTokensOut, 8)
       data.writeBigUInt64LE(maxSolCost, 16)
+      data[24] = 0 // track_volume = false
 
       instructions.push(
         new TransactionInstruction({
@@ -165,9 +217,13 @@ export class PumpFunAdapter implements DexAdapter {
             { pubkey: userPubkey, isSigner: true, isWritable: true },
             { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
             { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-            { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+            { pubkey: creatorVault, isSigner: false, isWritable: true },
             { pubkey: PUMP_FUN_EVENT_AUTHORITY, isSigner: false, isWritable: false },
-            { pubkey: PUMP_FUN_PROGRAM_ID, isSigner: false, isWritable: false }
+            { pubkey: PUMP_FUN_PROGRAM_ID, isSigner: false, isWritable: false },
+            { pubkey: globalVolumeAccumulator, isSigner: false, isWritable: false },
+            { pubkey: userVolumeAccumulator, isSigner: false, isWritable: true },
+            { pubkey: feeConfig, isSigner: false, isWritable: false },
+            { pubkey: PUMP_FUN_FEE_PROGRAM, isSigner: false, isWritable: false }
           ],
           data
         })
@@ -176,10 +232,10 @@ export class PumpFunAdapter implements DexAdapter {
       const tokenAmount = BigInt(params.amount)
       const minSolOut = BigInt(Math.floor(quote.outputAmount * (1 - params.slippageBps / 10000)))
 
-      // Build sell instruction
+      // Build sell instruction (24 bytes: 8 discriminator + 8 amount + 8 minSolOut)
       const data = Buffer.alloc(24)
-      // Discriminator for "sell" = 0x33e685a4017f83ad (first 8 bytes of sha256("global:sell"))
-      data.writeBigUInt64LE(0x33e685a4017f83adn, 0)
+      // SHA256("global:sell")[:8] = [51, 230, 133, 164, 1, 127, 131, 173]
+      Buffer.from([51, 230, 133, 164, 1, 127, 131, 173]).copy(data, 0)
       data.writeBigUInt64LE(tokenAmount, 8)
       data.writeBigUInt64LE(minSolOut, 16)
 
@@ -195,10 +251,12 @@ export class PumpFunAdapter implements DexAdapter {
             { pubkey: userAta, isSigner: false, isWritable: true },
             { pubkey: userPubkey, isSigner: true, isWritable: true },
             { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-            { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+            { pubkey: creatorVault, isSigner: false, isWritable: true },
             { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
             { pubkey: PUMP_FUN_EVENT_AUTHORITY, isSigner: false, isWritable: false },
-            { pubkey: PUMP_FUN_PROGRAM_ID, isSigner: false, isWritable: false }
+            { pubkey: PUMP_FUN_PROGRAM_ID, isSigner: false, isWritable: false },
+            { pubkey: feeConfig, isSigner: false, isWritable: false },
+            { pubkey: PUMP_FUN_FEE_PROGRAM, isSigner: false, isWritable: false }
           ],
           data
         })
@@ -225,6 +283,7 @@ export class PumpFunAdapter implements DexAdapter {
     tx.sign([signer])
 
     const connection = getConnection()
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
     const rawTx = tx.serialize()
 
     const signature = await connection.sendRawTransaction(rawTx, {
@@ -232,7 +291,10 @@ export class PumpFunAdapter implements DexAdapter {
       maxRetries: 3
     })
 
-    await connection.confirmTransaction(signature, 'confirmed')
+    await connection.confirmTransaction(
+      { signature, blockhash, lastValidBlockHeight },
+      'confirmed'
+    )
 
     return {
       signature,

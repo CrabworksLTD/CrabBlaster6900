@@ -36,3 +36,15 @@ export interface GenerateWalletsParams {
   count: number
   labelPrefix: string
 }
+
+export interface FundWalletRandomParams {
+  fromWalletId: string
+  allocations: { walletId: string; amountSol: number }[]
+}
+
+export interface SellWalletsParams {
+  walletIds: string[]
+  tokenMint: string
+  dex: string
+  slippageBps: number
+}

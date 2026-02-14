@@ -1,21 +1,31 @@
 {
-  "name": "crabblaster6900",
+  "name": "crabblaster9000",
   "version": "1.0.0",
-  "description": "CrabBlaster6900 — Solana Bundle & Volume Trading Bot",
+  "description": "CrabBlaster9000 — Solana Bundle & Volume Trading Bot",
   "main": "./out/main/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OWNER/crabblaster9000.git"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "package": "electron-builder"
+    "package": "electron-builder",
+    "package:mac": "electron-vite build && electron-builder --mac",
+    "package:win": "electron-vite build && electron-builder --win",
+    "package:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
+    "@bagsfm/bags-sdk": "^1.2.8",
     "@jup-ag/api": "^6.0.36",
-    "@raydium-io/raydium-sdk-v2": "^0.1.95-alpha",
+    "@raydium-io/raydium-sdk-v2": "^0.2.32-alpha",
     "@solana/spl-token": "^0.4.9",
     "@solana/web3.js": "^1.98.0",
     "better-sqlite3": "^11.7.0",
     "bs58": "^6.0.0",
+    "dotenv": "^17.3.1",
+    "electron-updater": "^6.7.3",
     "lucide-react": "^0.469.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

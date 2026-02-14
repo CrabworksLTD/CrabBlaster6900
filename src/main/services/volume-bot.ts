@@ -9,6 +9,8 @@ import { getMainWindow } from '../index'
 import { JupiterAdapter } from '../dex/jupiter-adapter'
 import { RaydiumAdapter } from '../dex/raydium-adapter'
 import { PumpFunAdapter } from '../dex/pumpfun-adapter'
+import { BonkAdapter } from '../dex/bonk-adapter'
+import { BagsAdapter } from '../dex/bags-adapter'
 import type { DexAdapter } from '../dex/dex-interface'
 
 function sleep(ms: number): Promise<void> {
@@ -24,6 +26,8 @@ function getDexAdapter(dex: string): DexAdapter {
     case 'jupiter': return new JupiterAdapter()
     case 'raydium': return new RaydiumAdapter()
     case 'pumpfun': return new PumpFunAdapter()
+    case 'bonk': return new BonkAdapter()
+    case 'bags': return new BagsAdapter()
     default: throw new Error(`Unknown DEX: ${dex}`)
   }
 }

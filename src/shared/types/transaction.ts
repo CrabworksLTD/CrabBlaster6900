@@ -12,7 +12,7 @@ export interface TransactionRecord {
   dex: string
   status: TransactionStatus
   error: string | null
-  botMode: 'bundle' | 'volume' | 'manual'
+  botMode: 'bundle' | 'volume' | 'manual' | 'copytrade'
   round: number
   createdAt: number
 }

@@ -1,5 +1,5 @@
-export type DexType = 'jupiter' | 'raydium' | 'pumpfun'
-export type BotMode = 'bundle' | 'volume'
+export type DexType = 'jupiter' | 'raydium' | 'pumpfun' | 'bonk' | 'bags'
+export type BotMode = 'bundle' | 'volume' | 'copytrade'
 export type BotStatus = 'idle' | 'running' | 'stopping' | 'error'
 export type TradeDirection = 'buy' | 'sell'
 
@@ -10,10 +10,12 @@ export interface BundleBotConfig {
   walletIds: string[]
   direction: TradeDirection
   amountSol: number
+  useMaxAmount: boolean // each wallet buys its max balance minus reserve
   slippageBps: number
   rounds: number
   delayBetweenRoundsMs: number
   priorityFeeMicroLamports: number
+  staggerDelayMs: number // delay between each wallet's trade to avoid linking (0 = parallel)
 }
 
 export interface VolumeBotConfig {
@@ -30,7 +32,36 @@ export interface VolumeBotConfig {
   priorityFeeMicroLamports: number
 }
 
-export type BotConfig = BundleBotConfig | VolumeBotConfig
+export type AmountMode = 'fixed' | 'proportional'
+
+export interface CopyTradeBotConfig {
+  mode: 'copytrade'
+  targetWallet: string
+  dex: DexType
+  walletIds: string[]
+  slippageBps: number
+  priorityFeeMicroLamports: number
+  amountMode: AmountMode
+  fixedAmountSol: number
+  copyBuys: boolean
+  copySells: boolean
+  copyDelayMs: number
+  pollIntervalMs: number
+}
+
+export interface DetectedTrade {
+  id: string
+  signature: string
+  targetWallet: string
+  tokenMint: string
+  direction: TradeDirection
+  amountSol: number
+  dex: string
+  replicated: boolean
+  detectedAt: number
+}
+
+export type BotConfig = BundleBotConfig | VolumeBotConfig | CopyTradeBotConfig
 
 export interface BotState {
   status: BotStatus

@@ -1,6 +1,7 @@
-import type { WalletInfo, FundWalletParams, ReclaimParams, ImportWalletParams, GenerateWalletsParams } from './wallet'
-import type { BotConfig, BotState } from './bot'
+import type { WalletInfo, FundWalletParams, ReclaimParams, ImportWalletParams, GenerateWalletsParams, FundWalletRandomParams, SellWalletsParams } from './wallet'
+import type { BotConfig, BotState, DetectedTrade } from './bot'
 import type { TransactionRecord } from './transaction'
+import type { LicenseStatus } from './license'
 
 // Request/Response channels (invoke/handle)
 export interface IpcChannels {
@@ -10,18 +11,27 @@ export interface IpcChannels {
   'wallet:list': { params: void; result: WalletInfo[] }
   'wallet:delete': { params: { walletId: string }; result: void }
   'wallet:fund': { params: FundWalletParams; result: { success: boolean; signatures: string[] } }
+  'wallet:fund-random': { params: FundWalletRandomParams; result: { success: boolean; signatures: string[] } }
+  'wallet:fund-hopped': { params: FundWalletRandomParams; result: { success: boolean; signatures: string[] } }
   'wallet:reclaim': { params: ReclaimParams; result: { success: boolean; signatures: string[] } }
+  'wallet:sell': { params: SellWalletsParams; result: { success: boolean; results: { walletId: string; status: string; signature: string }[] } }
   'wallet:refresh-balances': { params: void; result: WalletInfo[] }
 
   // Bot
   'bot:start': { params: BotConfig; result: void }
   'bot:stop': { params: void; result: void }
   'bot:status': { params: void; result: BotState }
+  'bot:detected-trades': { params: { limit?: number }; result: DetectedTrade[] }
 
   // Transactions
   'tx:list': { params: { limit?: number; offset?: number }; result: TransactionRecord[] }
   'tx:clear': { params: void; result: void }
   'tx:export': { params: void; result: string } // CSV string
+
+  // License
+  'license:check': { params: void; result: LicenseStatus }
+  'license:validate': { params: { licenseKey: string }; result: LicenseStatus }
+  'license:clear': { params: void; result: void }
 
   // Settings
   'settings:get-rpc': { params: void; result: string }
@@ -34,6 +44,7 @@ export interface IpcChannels {
 // Push event channels (send/on)
 export interface IpcEvents {
   'bot:state-changed': BotState
+  'bot:trade-detected': DetectedTrade
   'tx:event': TransactionRecord
   'wallet:balance-update': { walletId: string; balanceSol: number }
 }

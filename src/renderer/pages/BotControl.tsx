@@ -1,12 +1,14 @@
-import { useCallback, useRef, useEffect } from 'react'
-import { Activity, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { useCallback, useRef, useEffect, useState } from 'react'
+import { Activity, Clock, CheckCircle, XCircle, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { useBotStore } from '../stores/bot-store'
 import { useTransactionStore } from '../stores/transaction-store'
 import { useBotStatus } from '../hooks/useBotStatus'
 import { useTransactionFeed } from '../hooks/useTransactionFeed'
+import { useIpcEvent } from '../hooks/useIpcEvent'
 import { StatCard } from '../components/common/StatCard'
 import { EmptyState } from '../components/common/EmptyState'
+import type { DetectedTrade } from '@shared/types'
 
 export function BotControlPage() {
   const botState = useBotStatus()
@@ -14,8 +16,25 @@ export function BotControlPage() {
   const { stopBot } = useBotStore()
   const { clearTransactions, exportTransactions } = useTransactionStore()
   const feedRef = useRef<HTMLDivElement>(null)
+  const [detectedTrades, setDetectedTrades] = useState<DetectedTrade[]>([])
 
   const isRunning = botState.status === 'running'
+  const isCopyTrade = botState.mode === 'copytrade'
+
+  // Fetch detected trades on mount and listen for new ones
+  useEffect(() => {
+    if (isCopyTrade || detectedTrades.length === 0) {
+      window.electronAPI.invoke('bot:detected-trades', { limit: 50 })
+        .then(setDetectedTrades)
+        .catch(() => {})
+    }
+  }, [isCopyTrade])
+
+  const handleTradeDetected = useCallback((trade: DetectedTrade) => {
+    setDetectedTrades((prev) => [trade, ...prev].slice(0, 100))
+  }, [])
+
+  useIpcEvent('bot:trade-detected', handleTradeDetected)
 
   useEffect(() => {
     if (feedRef.current) feedRef.current.scrollTop = 0
@@ -35,7 +54,7 @@ export function BotControlPage() {
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = `crabblaster-tx-${Date.now()}.csv`; a.click()
+    a.href = url; a.download = `crabblaster9000-tx-${Date.now()}.csv`; a.click()
     URL.revokeObjectURL(url)
     toast.success('Exported')
   }, [exportTransactions])
@@ -64,8 +83,12 @@ export function BotControlPage() {
           value={botState.status === 'running' ? 'RUNNING' : botState.status === 'error' ? 'ERROR' : 'IDLE'}
           icon={Activity}
         />
-        <StatCard label="Round" value={`${botState.currentRound}/${botState.totalRounds || '∞'}`} icon={Clock} subtitle={isRunning ? elapsedStr : undefined} />
-        <StatCard label="Completed" value={botState.tradesCompleted} icon={CheckCircle} />
+        {isCopyTrade ? (
+          <StatCard label="Detected" value={botState.currentRound} icon={Eye} subtitle={isRunning ? elapsedStr : undefined} />
+        ) : (
+          <StatCard label="Round" value={`${botState.currentRound}/${botState.totalRounds || '∞'}`} icon={Clock} subtitle={isRunning ? elapsedStr : undefined} />
+        )}
+        <StatCard label={isCopyTrade ? 'Replicated' : 'Completed'} value={botState.tradesCompleted} icon={CheckCircle} />
         <StatCard label="Failed" value={botState.tradesFailed} icon={XCircle} />
       </div>
 
@@ -76,9 +99,63 @@ export function BotControlPage() {
         </div>
       )}
 
+      {/* Detected Trades Feed (copy trade mode) */}
+      {isCopyTrade && detectedTrades.length > 0 && (
+        <div className="win-groupbox">
+          <span className="win-groupbox-label">Detected Trades (Target Wallet)</span>
+          <div className="mt-2">
+            <div className="shadow-win-field bg-white max-h-[200px] overflow-y-auto">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="bg-win-bg sticky top-0">
+                    <th className="text-left px-1 py-0.5 font-normal border-b border-win-dark">Dir</th>
+                    <th className="text-left px-1 py-0.5 font-normal border-b border-win-dark">Token</th>
+                    <th className="text-right px-1 py-0.5 font-normal border-b border-win-dark">SOL</th>
+                    <th className="text-left px-1 py-0.5 font-normal border-b border-win-dark">DEX</th>
+                    <th className="text-center px-1 py-0.5 font-normal border-b border-win-dark">Copied</th>
+                    <th className="text-left px-1 py-0.5 font-normal border-b border-win-dark">Sig</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detectedTrades.map((trade, i) => (
+                    <tr key={trade.id} className={i % 2 === 0 ? 'bg-white' : 'bg-win-mid'}>
+                      <td className="px-1 py-0.5">
+                        <span className={trade.direction === 'buy' ? 'text-success font-bold' : 'text-danger font-bold'}>
+                          {trade.direction === 'buy' ? 'BUY' : 'SELL'}
+                        </span>
+                      </td>
+                      <td className="px-1 py-0.5 font-sys text-[10px]">
+                        {trade.tokenMint.slice(0, 4)}..{trade.tokenMint.slice(-4)}
+                      </td>
+                      <td className="px-1 py-0.5 text-right font-sys text-[10px]">{trade.amountSol.toFixed(4)}</td>
+                      <td className="px-1 py-0.5">{trade.dex}</td>
+                      <td className="px-1 py-0.5 text-center">
+                        <span className={trade.replicated ? 'text-success' : 'text-warning'}>
+                          {trade.replicated ? 'Yes' : 'Pending'}
+                        </span>
+                      </td>
+                      <td className="px-1 py-0.5 font-sys text-[10px]">
+                        <a
+                          href={`https://solscan.io/tx/${trade.signature}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-win-blue underline"
+                        >
+                          {trade.signature.slice(0, 8)}...
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Transaction Feed */}
       <div className="win-groupbox">
-        <span className="win-groupbox-label">Transaction Feed</span>
+        <span className="win-groupbox-label">{isCopyTrade ? 'Replicated Transactions' : 'Transaction Feed'}</span>
         <div className="mt-2">
           {transactions.length === 0 ? (
             <EmptyState icon={Activity} title="No transactions" description="Trades will appear here in real-time." />
@@ -148,10 +225,16 @@ export function BotControlPage() {
         <div className="win-groupbox">
           <span className="win-groupbox-label">Console</span>
           <div className="mt-2 shadow-win-field bg-black p-2 font-sys text-[11px] text-[#00ff00] space-y-0.5">
-            <p>C:\CRABBLASTER&gt; status</p>
+            <p>C:\CRABBLASTER9000&gt; status</p>
             <p>Mode: {botState.mode}</p>
-            <p>Round: {botState.currentRound} / {botState.totalRounds || '∞'}</p>
-            <p>Trades: {botState.tradesCompleted} confirmed, {botState.tradesFailed} failed</p>
+            {isCopyTrade ? (
+              <p>Detected: {botState.currentRound} | Replicated: {botState.tradesCompleted} | Failed: {botState.tradesFailed}</p>
+            ) : (
+              <>
+                <p>Round: {botState.currentRound} / {botState.totalRounds || '∞'}</p>
+                <p>Trades: {botState.tradesCompleted} confirmed, {botState.tradesFailed} failed</p>
+              </>
+            )}
             <p>Elapsed: {elapsedStr}</p>
             <p className="animate-pulse">_</p>
           </div>

@@ -4,69 +4,65 @@ import type { SwapQuote, SwapParams } from '@shared/types'
 import { getConnection } from '../services/rpc-manager'
 import { validateSwapTransaction } from './transaction-validator'
 
-const RAYDIUM_API_BASE = 'https://transaction-v1.raydium.io/v2'
+// LetsBONK.fun tokens trade on Raydium LaunchLab bonding curves.
+// Jupiter aggregates LaunchLab liquidity, so we route through Jupiter
+// for maximum reliability and optimal routing.
+const JUPITER_API_BASE = 'https://quote-api.jup.ag/v6'
 
-export class RaydiumAdapter implements DexAdapter {
-  name = 'raydium'
+export class BonkAdapter implements DexAdapter {
+  name = 'bonk'
 
   async getQuote(params: SwapParams): Promise<SwapQuote> {
-    const url = new URL(`${RAYDIUM_API_BASE}/main/swap/compute`)
+    const url = new URL(`${JUPITER_API_BASE}/quote`)
     url.searchParams.set('inputMint', params.inputMint)
     url.searchParams.set('outputMint', params.outputMint)
     url.searchParams.set('amount', params.amount.toString())
     url.searchParams.set('slippageBps', params.slippageBps.toString())
 
     const res = await fetch(url.toString())
-    if (!res.ok) throw new Error(`Raydium quote failed: ${res.statusText}`)
+    if (!res.ok) throw new Error(`Bonk quote failed: ${res.statusText}`)
 
     const data = await res.json()
-
-    if (!data.success) throw new Error(`Raydium quote error: ${data.msg || 'Unknown'}`)
 
     return {
       inputMint: params.inputMint,
       outputMint: params.outputMint,
-      inputAmount: Number(data.data.inputAmount),
-      outputAmount: Number(data.data.outputAmount),
-      priceImpactPct: Number(data.data.priceImpact || 0),
-      dex: 'raydium'
+      inputAmount: Number(data.inAmount),
+      outputAmount: Number(data.outAmount),
+      priceImpactPct: Number(data.priceImpactPct),
+      dex: 'bonk'
     }
   }
 
   async buildSwapTransaction(params: SwapParams, _quote: SwapQuote): Promise<VersionedTransaction> {
-    // Step 1: Get compute data
-    const computeUrl = new URL(`${RAYDIUM_API_BASE}/main/swap/compute`)
-    computeUrl.searchParams.set('inputMint', params.inputMint)
-    computeUrl.searchParams.set('outputMint', params.outputMint)
-    computeUrl.searchParams.set('amount', params.amount.toString())
-    computeUrl.searchParams.set('slippageBps', params.slippageBps.toString())
+    const url = new URL(`${JUPITER_API_BASE}/quote`)
+    url.searchParams.set('inputMint', params.inputMint)
+    url.searchParams.set('outputMint', params.outputMint)
+    url.searchParams.set('amount', params.amount.toString())
+    url.searchParams.set('slippageBps', params.slippageBps.toString())
 
-    const computeRes = await fetch(computeUrl.toString())
-    if (!computeRes.ok) throw new Error(`Raydium compute failed: ${computeRes.statusText}`)
-    const computeData = await computeRes.json()
+    const quoteRes = await fetch(url.toString())
+    if (!quoteRes.ok) throw new Error(`Bonk quote failed: ${quoteRes.statusText}`)
+    const quoteData = await quoteRes.json()
 
-    if (!computeData.success) throw new Error(`Raydium compute error: ${computeData.msg}`)
-
-    // Step 2: Get swap transaction
-    const txRes = await fetch(`${RAYDIUM_API_BASE}/main/swap/transaction`, {
+    const swapRes = await fetch(`${JUPITER_API_BASE}/swap`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        computeResponse: computeData.data,
-        wallet: params.walletPublicKey,
-        wrapSol: true,
-        unwrapSol: true
+        quoteResponse: quoteData,
+        userPublicKey: params.walletPublicKey,
+        wrapAndUnwrapSol: true,
+        dynamicComputeUnitLimit: true,
+        prioritizationFeeLamports: 'auto'
       })
     })
 
-    if (!txRes.ok) throw new Error(`Raydium tx build failed: ${txRes.statusText}`)
-    const txData = await txRes.json()
+    if (!swapRes.ok) throw new Error(`Bonk swap build failed: ${swapRes.statusText}`)
+    const swapData = await swapRes.json()
 
-    if (!txData.success) throw new Error(`Raydium tx error: ${txData.msg}`)
-
-    const txBuf = Buffer.from(txData.data.transaction, 'base64')
+    const txBuf = Buffer.from(swapData.swapTransaction, 'base64')
     const tx = VersionedTransaction.deserialize(txBuf)
-    validateSwapTransaction(tx, params.walletPublicKey, 'Raydium')
+    validateSwapTransaction(tx, params.walletPublicKey, 'Bonk')
     return tx
   }
 

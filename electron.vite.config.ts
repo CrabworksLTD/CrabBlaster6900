@@ -4,7 +4,19 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        external: [
+          'better-sqlite3',
+          'dotenv',
+          'electron',
+          'bufferutil',
+          'utf-8-validate',
+          '@raydium-io/raydium-sdk-v2',
+          '@bagsfm/bags-sdk'
+        ]
+      }
+    },
     resolve: {
       alias: {
         '@shared': resolve('src/shared')

@@ -1,12 +1,14 @@
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import type { BundleBotConfig, BotState } from '@shared/types'
 import { SOL_MINT } from '@shared/constants'
-import { executeParallelSwaps, type SwapTask } from './transaction-engine'
-import { listWallets } from './wallet-manager'
+import { executeParallelSwaps, executeSequentialSwaps, type SwapTask } from './transaction-engine'
+import { listWallets, listWalletsWithBalances } from './wallet-manager'
 import { getMainWindow } from '../index'
 import { JupiterAdapter } from '../dex/jupiter-adapter'
 import { RaydiumAdapter } from '../dex/raydium-adapter'
 import { PumpFunAdapter } from '../dex/pumpfun-adapter'
+import { BonkAdapter } from '../dex/bonk-adapter'
+import { BagsAdapter } from '../dex/bags-adapter'
 import type { DexAdapter } from '../dex/dex-interface'
 
 function sleep(ms: number): Promise<void> {
@@ -18,6 +20,8 @@ function getDexAdapter(dex: string): DexAdapter {
     case 'jupiter': return new JupiterAdapter()
     case 'raydium': return new RaydiumAdapter()
     case 'pumpfun': return new PumpFunAdapter()
+    case 'bonk': return new BonkAdapter()
+    case 'bags': return new BagsAdapter()
     default: throw new Error(`Unknown DEX: ${dex}`)
   }
 }
@@ -67,7 +71,16 @@ export async function startBundleBot(config: BundleBotConfig): Promise<void> {
     error: null
   })
 
-  const allWallets = listWallets()
+  // Reserve enough for a sell tx: base fee (5k lamports) + priority fee + rent buffer
+  // Priority fee = microLamports * estimatedCU / 1_000_000
+  const estimatedSellCU = 200_000
+  const priorityFeeLamports = Math.ceil(config.priorityFeeMicroLamports * estimatedSellCU / 1_000_000)
+  const SOL_RESERVE_LAMPORTS = 5_000 + priorityFeeLamports + 2_500_000 // base fee + priority + 0.0025 SOL rent buffer
+
+  // Fetch balances if using max amount, otherwise just get wallet records
+  const allWallets = config.useMaxAmount
+    ? await listWalletsWithBalances()
+    : listWallets().map((w) => ({ ...w, balanceSol: 0 }))
   const walletMap = new Map(allWallets.map((w) => [w.id, w]))
 
   try {
@@ -81,24 +94,39 @@ export async function startBundleBot(config: BundleBotConfig): Promise<void> {
         const wallet = walletMap.get(walletId)
         if (!wallet) throw new Error(`Wallet ${walletId} not found`)
 
+        let amountLamports: number
+        let amountSol: number
+
+        if (config.useMaxAmount && isBuy) {
+          const balanceLamports = Math.floor(wallet.balanceSol * LAMPORTS_PER_SOL)
+          amountLamports = Math.max(0, balanceLamports - SOL_RESERVE_LAMPORTS)
+          amountSol = amountLamports / LAMPORTS_PER_SOL
+        } else {
+          amountLamports = Math.floor(config.amountSol * LAMPORTS_PER_SOL)
+          amountSol = config.amountSol
+        }
+
         return {
           walletId,
           params: {
             inputMint: isBuy ? SOL_MINT : config.tokenMint,
             outputMint: isBuy ? config.tokenMint : SOL_MINT,
-            amount: Math.floor(config.amountSol * LAMPORTS_PER_SOL),
+            amount: amountLamports,
             slippageBps: config.slippageBps,
             walletPublicKey: wallet.publicKey
           },
           tokenMint: config.tokenMint,
           direction: config.direction,
-          amountSol: config.amountSol,
+          amountSol,
           botMode: 'bundle' as const,
           round
         }
       })
 
-      const results = await executeParallelSwaps(adapter, tasks)
+      // Stagger trades to avoid on-chain linking, or run parallel if stagger is 0
+      const results = config.staggerDelayMs > 0
+        ? await executeSequentialSwaps(adapter, tasks, config.staggerDelayMs)
+        : await executeParallelSwaps(adapter, tasks)
 
       const completed = results.filter((r) => r.status === 'confirmed').length
       const failed = results.filter((r) => r.status === 'failed').length

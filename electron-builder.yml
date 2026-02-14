@@ -1,0 +1,31 @@
+appId: com.crabblaster.app
+productName: CrabBlaster9000
+directories:
+  buildResources: build
+  output: dist
+
+asar: true
+asarUnpack:
+  - "**/*.{node,dll}"
+  - node_modules/better-sqlite3/**
+
+mac:
+  category: public.app-category.finance
+  icon: build/icon.icns
+  target:
+    - dmg
+    - zip
+
+win:
+  icon: build/icon.ico
+  target:
+    - nsis
+
+linux:
+  icon: build/icon.png
+  target:
+    - AppImage
+  category: Finance
+
+publish:
+  provider: github
