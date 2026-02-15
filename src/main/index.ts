@@ -7,7 +7,6 @@ import { registerWalletIpc } from './ipc/wallet.ipc'
 import { registerBotIpc } from './ipc/bot.ipc'
 import { registerTransactionIpc } from './ipc/transaction.ipc'
 import { registerSettingsIpc } from './ipc/settings.ipc'
-import { registerLicenseIpc } from './ipc/license.ipc'
 import { autoUpdater } from 'electron-updater'
 
 let mainWindow: BrowserWindow | null = null
@@ -46,7 +45,7 @@ function createWindow(): void {
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     // Only allow HTTPS URLs to trusted domains
-    const ALLOWED_DOMAINS = ['solscan.io', 'whop.com', 'crabblaster.app', 'github.com']
+    const ALLOWED_DOMAINS = ['solscan.io', 'crabblaster.app', 'github.com']
     try {
       const url = new URL(details.url)
       if (url.protocol === 'https:' && ALLOWED_DOMAINS.some((d) => url.hostname === d || url.hostname.endsWith(`.${d}`))) {
@@ -90,8 +89,6 @@ app.whenReady().then(() => {
   registerBotIpc()
   registerTransactionIpc()
   registerSettingsIpc()
-  registerLicenseIpc()
-
   createWindow()
 
   autoUpdater.checkForUpdatesAndNotify()

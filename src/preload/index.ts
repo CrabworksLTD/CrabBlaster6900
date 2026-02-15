@@ -11,7 +11,6 @@ const ALLOWED_INVOKE_CHANNELS: string[] = [
   'wallet:sell', 'wallet:refresh-balances',
   'bot:start', 'bot:stop', 'bot:status', 'bot:detected-trades',
   'tx:list', 'tx:clear', 'tx:export',
-  'license:check', 'license:validate', 'license:clear',
   'settings:get-rpc', 'settings:set-rpc', 'settings:test-rpc',
   'settings:get', 'settings:set'
 ]

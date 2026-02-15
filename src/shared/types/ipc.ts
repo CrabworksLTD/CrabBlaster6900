@@ -1,8 +1,6 @@
 import type { WalletInfo, FundWalletParams, ReclaimParams, ImportWalletParams, GenerateWalletsParams, FundWalletRandomParams, SellWalletsParams } from './wallet'
 import type { BotConfig, BotState, DetectedTrade } from './bot'
 import type { TransactionRecord } from './transaction'
-import type { LicenseStatus } from './license'
-
 // Request/Response channels (invoke/handle)
 export interface IpcChannels {
   // Wallet
@@ -27,11 +25,6 @@ export interface IpcChannels {
   'tx:list': { params: { limit?: number; offset?: number }; result: TransactionRecord[] }
   'tx:clear': { params: void; result: void }
   'tx:export': { params: void; result: string } // CSV string
-
-  // License
-  'license:check': { params: void; result: LicenseStatus }
-  'license:validate': { params: { licenseKey: string }; result: LicenseStatus }
-  'license:clear': { params: void; result: void }
 
   // Settings
   'settings:get-rpc': { params: void; result: string }
