@@ -3,7 +3,7 @@ export const PLATFORM_FEE_PCT = 1.5
 export const PLATFORM_FEE_BPS = 150
 export const PLATFORM_FEE_WALLET = '72woeTF6QgJVG9VJ8wpbjA31AuHXBvgxzVMVbFxuKeDv'
 
-export const DEFAULT_RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com'
+export const DEFAULT_RPC_ENDPOINT = 'https://crabblaster.app/api/rpc'
 export const DEFAULT_SLIPPAGE_BPS = 300 // 3%
 export const DEFAULT_PRIORITY_FEE_MICRO_LAMPORTS = 50_000
 export const MAX_WALLETS_PER_FUND_TX = 20

@@ -8,6 +8,7 @@ let currentEndpoint: string | null = null
 export function getConnection(): Connection {
   const endpoint = getRpcEndpoint()
   if (!connection || currentEndpoint !== endpoint) {
+    console.log(`[rpc-manager] Connecting to: ${endpoint.replace(/api-key=[^&]+/, 'api-key=***')}`)
     connection = new Connection(endpoint, {
       commitment: 'confirmed',
       confirmTransactionInitialTimeout: 60_000

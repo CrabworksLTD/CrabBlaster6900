@@ -106,6 +106,9 @@ export async function listWalletsWithBalances(): Promise<WalletInfo[]> {
 
   return records.map((r, i) => {
     const result = balances[i]
+    if (result.status === 'rejected') {
+      console.error(`[wallet-manager] Balance fetch failed for ${r.publicKey}:`, result.reason)
+    }
     const balanceSol = result.status === 'fulfilled' ? result.value / LAMPORTS_PER_SOL : 0
     return {
       id: r.id,
